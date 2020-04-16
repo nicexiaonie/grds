@@ -7,8 +7,6 @@ import (
 )
 
 type DbConfig struct {
-	// db标识
-	Key string
 	// 连接方式 tcp:
 	Net string
 	// 地址  0.0.0.0:3306

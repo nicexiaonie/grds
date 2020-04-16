@@ -20,7 +20,6 @@ type LogDao struct {
 func main() {
 
 	c := &grds.DbConfig{
-		Key:          "11",
 		Net:          "tcp",
 		Host:         "172.25.20.233:8306",
 		User:         "qukan",
