@@ -586,11 +586,35 @@ go get github.com/nicexiaonie/grds
 
 ##### 2. 安装命令行工具
 
+**方式一：从源码安装（推荐）**
+
+如果您已经克隆了 grds 仓库或在使用 grds 的项目中：
+
 ```bash
+# 在 grds 项目目录下
+go install ./cmd/grds-gen
+
+# 或从任何位置
 go install github.com/nicexiaonie/grds/cmd/grds-gen@latest
 ```
 
+**方式二：本地编译**
+
+```bash
+# 克隆仓库
+git clone https://github.com/nicexiaonie/grds.git
+cd grds
+
+# 编译并安装
+go install ./cmd/grds-gen
+```
+
 安装成功后，`grds-gen` 命令会被添加到 `$GOPATH/bin` 目录（确保该目录在您的 PATH 中）。
+
+验证安装：
+```bash
+grds-gen -version
+```
 
 ##### 3. 初始化配置文件
 
