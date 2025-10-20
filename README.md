@@ -1,3 +1,4 @@
+[toc]
 # GRDS - Go Relational Database Simplifier
 
 基于 **GORM v2** 的 MySQL 数据库工具库，提供开箱即用、功能强大、全面、简洁的 MySQL 管理工具。
@@ -559,6 +560,385 @@ defer cancel()
 // 使用上下文
 var users []User
 grds.WithContext(ctx).Model(&User{}).Find(&users)
+```
+
+### 模型生成器
+
+GRDS 提供了内置的模型生成器，可以从数据库表结构自动生成 GORM 模型代码。
+
+> 📖 **详细使用指南**: 查看 [GENERATOR_USAGE.md](./GENERATOR_USAGE.md) 了解完整的功能和配置选项。
+
+**核心特性**：
+- ✅ 自动获取表注释和字段注释（参考 gormt）
+- ✅ 自定义数据库类型到 Go 类型的映射
+- ✅ 完整的 GORM 标签支持（包括类型、默认值、注释等）
+- ✅ 灵活的 JSON 标签命名风格（snake_case、camelCase、original）
+- ✅ 支持表前缀去除
+- ✅ 支持选择性生成表
+
+#### 快速开始
+
+##### 1. 在您的项目中引入 grds
+
+```bash
+go get github.com/nicexiaonie/grds
+```
+
+##### 2. 安装命令行工具
+
+```bash
+go install github.com/nicexiaonie/grds/cmd/grds-gen@latest
+```
+
+安装成功后，`grds-gen` 命令会被添加到 `$GOPATH/bin` 目录（确保该目录在您的 PATH 中）。
+
+##### 3. 初始化配置文件
+
+在您的项目根目录运行：
+
+```bash
+cd your-project
+grds-gen -init
+```
+
+这将创建 `.grds.yaml` 配置文件：
+
+```yaml
+# GRDS 模型生成器配置文件
+database:
+  host: 127.0.0.1
+  port: 3306
+  username: root
+  password: your_password
+  database: your_database
+
+generator:
+  # 输出目录
+  out_dir: ./models
+  # 输出文件名
+  out_file: models.go
+  # 包名
+  package_name: models
+  # 指定要生成的表（留空则生成所有表）
+  tables: []
+  # 表前缀（生成时会去除）
+  table_prefix: ""
+```
+
+##### 4. 编辑配置文件
+
+编辑 `.grds.yaml`，填写您的数据库连接信息。
+
+##### 5. 生成模型
+
+运行：
+
+```bash
+grds-gen
+```
+
+生成成功后，您会看到类似的输出：
+
+```
+📝 使用配置文件: .grds.yaml
+正在生成模型...
+数据库: root@127.0.0.1:3306/mydb
+输出目录: ./models
+输出文件: models.go
+包名: models
+生成所有表
+--------------------------------------------------
+✅ 模型生成成功！
+📁 文件位置: ./models/models.go
+```
+
+##### 6. 在代码中使用生成的模型
+
+```go
+package main
+
+import (
+    "github.com/nicexiaonie/grds"
+    "your-project/models"
+)
+
+func main() {
+    // 连接数据库
+    config := grds.NewConfig("127.0.0.1", 3306, "root", "password", "mydb")
+    grds.MustConnect(config)
+    defer grds.Close()
+    
+    // 使用生成的模型
+    var users []models.Users
+    grds.Model(&models.Users{}).Find(&users)
+}
+```
+
+#### 高级用法
+
+##### 指定配置文件：
+
+```bash
+grds-gen -config=./config/db.yaml
+```
+
+#### 使用命令行参数
+
+命令行参数会覆盖配置文件：
+
+```bash
+# 生成所有表
+grds-gen -database=mydb -user=root -password=secret
+
+# 生成指定表
+grds-gen -database=mydb -tables=users,orders,products
+
+# 指定输出目录和包名
+grds-gen -database=mydb -out=./internal/models -package=model
+
+# 设置表前缀（生成时去除）
+grds-gen -database=mydb -prefix=tbl_
+```
+
+#### 查看数据库信息
+
+```bash
+# 列出所有表
+grds-gen -list
+
+# 查看表结构
+grds-gen -columns=users
+```
+
+#### 完整命令行参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| -config | 配置文件路径 | 自动查找 |
+| -host | 数据库主机 | 127.0.0.1 |
+| -port | 数据库端口 | 3306 |
+| -user | 用户名 | root |
+| -password | 密码 | |
+| -database | 数据库名 | |
+| -out | 输出目录 | ./models |
+| -file | 输出文件名 | models.go |
+| -package | 包名 | models |
+| -tables | 指定表名(逗号分隔) | |
+| -prefix | 表前缀 | |
+| -list | 列出所有表 | false |
+| -columns | 显示表结构 | |
+| -init | 初始化配置文件 | false |
+| -version | 显示版本 | false |
+
+#### 在代码中使用生成器
+
+如果需要在代码中使用生成器功能：
+
+```go
+package main
+
+import (
+    "log"
+    "github.com/nicexiaonie/grds"
+)
+
+func main() {
+    // 方式 1：快速生成
+    err := grds.GenerateModels("127.0.0.1", 3306, "root", "password", "mydb", "./models")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 方式 2：使用配置
+    config := grds.NewGeneratorConfig("127.0.0.1", 3306, "root", "password", "mydb")
+    config.WithOutDir("./models").
+        WithPackageName("models").
+        WithTables("users", "orders").
+        WithTypeMapping(map[string]string{
+            "decimal": "decimal.Decimal",
+        }).
+        WithJSONTagStyle("camelCase")
+    
+    if err := config.Generate(); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+#### 生成的模型示例
+
+假设数据库中有一个 `users` 表（包含注释），生成的模型如下：
+
+```sql
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+  `username` varchar(50) NOT NULL COMMENT '用户名',
+  `email` varchar(100) NOT NULL COMMENT '邮箱',
+  `age` int(11) NOT NULL COMMENT '年龄',
+  `balance` decimal(10,2) DEFAULT '0.00' COMMENT '余额',
+  `created_at` datetime NOT NULL COMMENT '创建时间',
+  `updated_at` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+```
+
+生成的 Go 模型：
+
+```go
+package models
+
+import "time"
+
+// Users 用户表
+type Users struct {
+	Id        int       `gorm:"column:id;type:int(11);primaryKey;autoIncrement;not null;comment:用户ID" json:"id"` // 用户ID
+	Username  string    `gorm:"column:username;type:varchar(50);not null;comment:用户名" json:"username"` // 用户名
+	Email     string    `gorm:"column:email;type:varchar(100);not null;comment:邮箱" json:"email"` // 邮箱
+	Age       int       `gorm:"column:age;type:int(11);not null;comment:年龄" json:"age"` // 年龄
+	Balance   float64   `gorm:"column:balance;type:decimal(10,2);default:0.00;comment:余额" json:"balance"` // 余额
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime;not null;comment:创建时间" json:"created_at"` // 创建时间
+	UpdatedAt time.Time `gorm:"column:updated_at;type:datetime;not null;comment:更新时间" json:"updated_at"` // 更新时间
+}
+
+// TableName 指定表名
+func (Users) TableName() string {
+	return "users"
+}
+```
+
+#### 自定义类型映射
+
+grds-gen 支持自定义数据库类型到 Go 类型的映射，参考 gormt 的实现。在配置文件中添加：
+
+```yaml
+generator:
+  # 自定义类型映射
+  type_mapping:
+    # 将 datetime 映射为 time.Time（默认已配置）
+    datetime: time.Time
+    # 将 decimal 映射为自定义类型
+    decimal: decimal.Decimal
+    # 将 json 映射为 json.RawMessage
+    json: json.RawMessage
+    # 将 text 映射为 sql.NullString
+    text: sql.NullString
+```
+
+在代码中使用：
+
+```go
+config := grds.NewGeneratorConfig("127.0.0.1", 3306, "root", "password", "mydb")
+config.WithTypeMapping(map[string]string{
+    "decimal": "decimal.Decimal",
+    "json":    "json.RawMessage",
+})
+config.Generate()
+```
+
+#### 默认类型映射
+
+| 数据库类型 | Go 类型 |
+|-----------|---------|
+| tinyint | int8 |
+| tinyint unsigned | uint8 |
+| smallint | int16 |
+| smallint unsigned | uint16 |
+| int, integer | int |
+| int unsigned | uint32 |
+| bigint | int64 |
+| bigint unsigned | uint64 |
+| float | float32 |
+| double, decimal | float64 |
+| char, varchar, text | string |
+| datetime, date, timestamp | time.Time |
+| time | string |
+| year | int |
+| blob, binary | []byte |
+| json | string |
+| enum, set | string |
+
+#### JSON 标签命名风格
+
+支持三种 JSON 标签命名风格：
+
+```yaml
+generator:
+  # snake_case（默认）：user_name -> "user_name"
+  json_tag_style: snake_case
+  
+  # camelCase：user_name -> "userName"
+  # json_tag_style: camelCase
+  
+  # original：保持原样
+  # json_tag_style: original
+```
+
+#### 控制标签生成
+
+```yaml
+generator:
+  # 是否生成 JSON 标签（默认: true）
+  enable_json_tag: true
+  # 是否生成 GORM 标签（默认: true）
+  enable_gorm_tag: true
+```
+
+在代码中：
+
+```go
+config.WithEnableJSONTag(false)  // 不生成 JSON 标签
+config.WithEnableGormTag(true)   // 生成 GORM 标签
+config.WithJSONTagStyle("camelCase")  // 使用小驼峰命名
+```
+
+#### 表和字段注释
+
+生成器会自动获取并生成：
+- **表注释**：作为结构体注释
+- **字段注释**：作为字段的行尾注释
+- **GORM comment 标签**：包含在 GORM 标签中
+
+示例数据库：
+```sql
+CREATE TABLE `products` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '产品ID',
+  `name` varchar(100) NOT NULL COMMENT '产品名称',
+  `price` decimal(10,2) NOT NULL COMMENT '价格',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB COMMENT='产品表';
+```
+
+生成的模型：
+```go
+// Products 产品表
+type Products struct {
+    Id    int64   `gorm:"column:id;type:bigint(20);primaryKey;autoIncrement;not null;comment:产品ID" json:"id"` // 产品ID
+    Name  string  `gorm:"column:name;type:varchar(100);not null;comment:产品名称" json:"name"` // 产品名称
+    Price float64 `gorm:"column:price;type:decimal(10,2);not null;comment:价格" json:"price"` // 价格
+}
+```
+
+#### 项目集成示例
+
+在项目的 `Makefile` 中添加：
+
+```makefile
+.PHONY: gen-models
+gen-models:
+	grds-gen
+
+.PHONY: gen-models-tables
+gen-models-tables:
+	grds-gen -tables=users,orders,products
+```
+
+在项目的 `scripts` 目录创建 `gen.sh`：
+
+```bash
+#!/bin/bash
+echo "生成数据库模型..."
+grds-gen
+echo "完成！"
 ```
 
 ## 📊 性能建议

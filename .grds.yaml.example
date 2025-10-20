@@ -1,0 +1,46 @@
+# GRDS 模型生成器配置文件示例
+# 复制此文件为 .grds.yaml 并修改配置后使用
+# 运行 'grds-gen' 命令生成模型
+
+database:
+  # 数据库主机地址
+  host: 127.0.0.1
+  # 数据库端口
+  port: 3306
+  # 数据库用户名
+  username: root
+  # 数据库密码
+  password: your_password
+  # 数据库名
+  database: your_database
+
+generator:
+  # 输出目录
+  out_dir: ./models
+  # 输出文件名
+  out_file: models.go
+  # 包名
+  package_name: models
+  # 指定要生成的表（留空则生成所有表）
+  # 示例: tables: [users, orders, products]
+  tables: []
+  # 表前缀（生成时会去除）
+  # 示例: 如果表名是 tbl_users，设置 table_prefix: tbl_ 后生成的结构体名为 Users
+  table_prefix: ""
+  
+  # 自定义类型映射（可选）
+  # 覆盖默认的数据库类型到Go类型的映射
+  # 示例:
+  # type_mapping:
+  #   datetime: time.Time
+  #   decimal: decimal.Decimal
+  #   json: json.RawMessage
+  type_mapping: {}
+  
+  # 是否启用 JSON 标签（默认: true）
+  enable_json_tag: true
+  # 是否启用 GORM 标签（默认: true）
+  enable_gorm_tag: true
+  # JSON 标签命名风格: snake_case, camelCase, original（默认: snake_case）
+  json_tag_style: snake_case
+
