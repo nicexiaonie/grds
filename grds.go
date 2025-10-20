@@ -1,99 +1,157 @@
 package grds
 
 import (
-	"errors"
-	"github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
+	"context"
+
+	"gorm.io/gorm"
 )
 
-type DbConfig struct {
-	// 连接方式 tcp:
-	Net string
-	// 地址  0.0.0.0:3306
-	Host string
-	// 用户名
-	User string
-	// 密码
-	Passwd string
-	// 数据库
-	DBName string
+// Version 版本号
+const Version = "2.0.0"
 
-	MaxIdleConns int
-	MaxOpenConns int
-	LogMode      bool
-}
-type Client struct {
-	Config *DbConfig
-	DB     *gorm.DB
-}
+// 全局默认客户端
+var defaultClient *Client
 
-type tableModelInterface interface {
-	TableName() string
-}
-type Table struct {
-	Database Client
-	model    tableModelInterface
-	Handle   *gorm.DB
-}
-
-func NewDb(c *DbConfig) (Client, error) {
-	r := Client{
-		Config: c,
-	}
-	config := mysql.NewConfig()
-	config.Net = c.Net
-	config.Addr = c.Host
-	config.User = c.User
-	config.Passwd = c.Passwd
-	config.DBName = c.DBName
-	DSN := config.FormatDSN()
-
-	db, err := gorm.Open("mysql", DSN)
+// Connect 连接数据库并设置为默认客户端
+func Connect(config *Config) error {
+	client, err := NewClient(config)
 	if err != nil {
-		return r, errors.New("mysql初始化失败")
+		return err
 	}
-
-	db.DB().SetMaxIdleConns(c.MaxIdleConns)
-	db.DB().SetMaxOpenConns(c.MaxOpenConns)
-	db.LogMode(c.LogMode)
-	r.DB = db
-
-	return r, nil
+	defaultClient = client
+	return nil
 }
 
-func (current *Client) NewTable(model tableModelInterface) *Table {
-	r := Table{
-		Database: *current,
-		model:    model,
-		Handle:   current.DB,
+// MustConnect 连接数据库，失败则 panic
+func MustConnect(config *Config) {
+	if err := Connect(config); err != nil {
+		panic(err)
 	}
-	return &r
 }
-func (t *Table) Clone() *Table {
-	var r = &Table{
-		Handle:   t.Database.DB,
-		model:    t.model,
-		Database: t.Database,
+
+// SetDefaultClient 设置默认客户端
+func SetDefaultClient(client *Client) {
+	defaultClient = client
+}
+
+// GetDefaultClient 获取默认客户端
+func GetDefaultClient() *Client {
+	if defaultClient == nil {
+		panic("default client not initialized, call Connect() first")
 	}
-	*r.Handle = *t.Handle
-	r.Handle = r.Handle.Table(r.model.TableName())
-	return r
+	return defaultClient
 }
-func (t *Table) Where(query interface{}, args ...interface{}) *Table {
-	t.Handle = t.Handle.Where(query, args)
-	return t
+
+// Close 关闭默认客户端
+func Close() error {
+	if defaultClient != nil {
+		return defaultClient.Close()
+	}
+	return nil
 }
-func (t *Table) Count() int64 {
-	var r int64
-	t.Handle.Count(&r)
-	return r
+
+// DB 获取默认客户端的 GORM DB 实例
+func DB() *gorm.DB {
+	return GetDefaultClient().DB()
 }
-func (t *Table) Find(out interface{}) {
-	t.Handle.Find(out)
+
+// Table 使用默认客户端创建表查询
+func Table(name string, args ...interface{}) *QueryBuilder {
+	return GetDefaultClient().Table(name, args...)
 }
-func (t *Table) Limit(limit interface{}) {
-	t.Handle.Limit(limit)
+
+// Model 使用默认客户端创建模型查询
+func Model(value interface{}) *QueryBuilder {
+	return GetDefaultClient().Model(value)
 }
-func (t *Table) Offset(offset interface{}) {
-	t.Handle.Offset(offset)
+
+// Tx 执行事务（使用默认客户端）
+func Tx(fc TxFunc) error {
+	return GetDefaultClient().Transaction(fc)
+}
+
+// TxWithContext 带上下文执行事务
+func TxWithContext(ctx context.Context, fc TxFunc) error {
+	return TransactionWithContext(ctx, GetDefaultClient().DB(), fc)
+}
+
+// Create 创建记录（使用默认客户端）
+func Create(value interface{}) error {
+	return GetDefaultClient().Create(value).Error
+}
+
+// Save 保存记录（使用默认客户端）
+func Save(value interface{}) error {
+	return GetDefaultClient().Save(value).Error
+}
+
+// First 查询第一条记录（使用默认客户端）
+func First(dest interface{}, conds ...interface{}) error {
+	return GetDefaultClient().First(dest, conds...).Error
+}
+
+// Find 查询记录（使用默认客户端）
+func Find(dest interface{}, conds ...interface{}) error {
+	return GetDefaultClient().Find(dest, conds...).Error
+}
+
+// Delete 删除记录（使用默认客户端）
+func Delete(value interface{}, conds ...interface{}) error {
+	return GetDefaultClient().Delete(value, conds...).Error
+}
+
+// Where 添加查询条件（使用默认客户端）
+func Where(query interface{}, args ...interface{}) *gorm.DB {
+	return GetDefaultClient().Where(query, args...)
+}
+
+// Exec 执行原生 SQL（使用默认客户端）
+func Exec(sql string, values ...interface{}) error {
+	return GetDefaultClient().Exec(sql, values...).Error
+}
+
+// Raw 执行原生 SQL 查询（使用默认客户端）
+func Raw(sql string, values ...interface{}) *gorm.DB {
+	return GetDefaultClient().Raw(sql, values...)
+}
+
+// AutoMigrate 自动迁移（使用默认客户端）
+func AutoMigrate(dst ...interface{}) error {
+	return GetDefaultClient().AutoMigrate(dst...)
+}
+
+// Ping 测试连接（使用默认客户端）
+func Ping() error {
+	ctx := context.Background()
+	return GetDefaultClient().Ping(ctx)
+}
+
+// Stats 获取统计信息（使用默认客户端）
+func Stats() string {
+	return GetDefaultClient().StatsInfo()
+}
+
+// HealthCheck 健康检查（使用默认客户端）
+func HealthCheck() error {
+	return GetDefaultClient().HealthCheck()
+}
+
+// Debug 开启调试模式（使用默认客户端）
+func Debug() *gorm.DB {
+	return GetDefaultClient().Debug()
+}
+
+// WithContext 设置上下文（使用默认客户端）
+func WithContext(ctx context.Context) *gorm.DB {
+	return GetDefaultClient().WithContext(ctx)
+}
+
+// Use 使用插件（使用默认客户端）
+func Use(plugin gorm.Plugin) error {
+	return GetDefaultClient().Use(plugin)
+}
+
+// RegisterCallbacks 获取回调注册器（使用默认客户端）
+func RegisterCallbacks() *CallbackRegistry {
+	return NewCallbackRegistry(GetDefaultClient().DB())
 }
