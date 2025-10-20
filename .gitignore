@@ -3,8 +3,8 @@
 bin
 vendor
 
-# 编译的二进制文件
-grds-gen
+# 编译的二进制文件（只忽略根目录下的）
+/grds-gen
 
 # 配置文件（本地）
 .grds.yaml
