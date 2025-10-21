@@ -27,6 +27,10 @@ generator:
   # 表前缀（生成时会去除）
   # 示例: 如果表名是 tbl_users，设置 table_prefix: tbl_ 后生成的结构体名为 Users
   table_prefix: ""
+  # 是否为每个表生成单独的文件（默认: false）
+  # true: 每个表生成一个文件，文件名格式为 表名_model.go
+  # false: 所有表生成到一个文件（out_file 指定的文件名）
+  separate_file: false
   
   # 自定义类型映射（可选）
   # 覆盖默认的数据库类型到Go类型的映射

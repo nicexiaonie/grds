@@ -31,6 +31,7 @@ type ConfigFile struct {
 		PackageName   string            `yaml:"package_name" json:"package_name"`
 		Tables        []string          `yaml:"tables" json:"tables"`
 		TablePrefix   string            `yaml:"table_prefix" json:"table_prefix"`
+		SeparateFile  bool              `yaml:"separate_file" json:"separate_file"`
 		TypeMapping   map[string]string `yaml:"type_mapping" json:"type_mapping"`
 		EnableJSONTag bool              `yaml:"enable_json_tag" json:"enable_json_tag"`
 		EnableGormTag bool              `yaml:"enable_gorm_tag" json:"enable_gorm_tag"`
@@ -54,6 +55,7 @@ func main() {
 		packageName = flag.String("package", "", "包名")
 		tables      = flag.String("tables", "", "指定要生成的表名，多个表用逗号分隔")
 		tablePrefix = flag.String("prefix", "", "表前缀，生成时会去除")
+		_           = flag.Bool("separate", false, "为每个表生成单独的文件（格式：表名_model.go）")
 
 		listTables  = flag.Bool("list", false, "列出所有表名")
 		showColumns = flag.String("columns", "", "显示指定表的列信息")
@@ -143,6 +145,11 @@ func main() {
 	if *tablePrefix != "" {
 		config.Generator.TablePrefix = *tablePrefix
 	}
+	// 注意：separateFile 是布尔值，使用 flag 包时需要特殊处理
+	// 如果命令行指定了 -separate，则使用命令行值
+	if flag.Lookup("separate").Value.String() == "true" {
+		config.Generator.SeparateFile = true
+	}
 
 	// 验证必填参数
 	if config.Database.Database == "" {
@@ -165,6 +172,7 @@ func main() {
 	genConfig.PackageName = config.Generator.PackageName
 	genConfig.Tables = config.Generator.Tables
 	genConfig.TablePrefix = config.Generator.TablePrefix
+	genConfig.SeparateFile = config.Generator.SeparateFile
 	genConfig.EnableJSONTag = config.Generator.EnableJSONTag
 	genConfig.EnableGormTag = config.Generator.EnableGormTag
 	genConfig.JSONTagStyle = config.Generator.JSONTagStyle
@@ -243,7 +251,11 @@ func main() {
 	}
 
 	fmt.Println("✅ 模型生成成功！")
-	fmt.Printf("📁 文件位置: %s/%s\n", config.Generator.OutDir, config.Generator.OutFileName)
+	if config.Generator.SeparateFile {
+		fmt.Printf("📁 文件位置: %s/*_model.go\n", config.Generator.OutDir)
+	} else {
+		fmt.Printf("📁 文件位置: %s/%s\n", config.Generator.OutDir, config.Generator.OutFileName)
+	}
 }
 
 // loadConfig 加载配置文件
@@ -340,6 +352,10 @@ generator:
   tables: []
   # 表前缀（生成时会去除）
   table_prefix: ""
+  # 是否为每个表生成单独的文件（默认: false）
+  # true: 每个表生成一个文件，文件名格式为 表名_model.go
+  # false: 所有表生成到一个文件（out_file 指定的文件名）
+  separate_file: false
   
   # 自定义类型映射（可选）
   # 示例:

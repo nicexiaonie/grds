@@ -19,11 +19,12 @@ type GeneratorConfig struct {
 	Database string
 
 	// 输出配置
-	OutDir      string   // 输出目录，默认 "./models"
-	OutFileName string   // 输出文件名，默认 "models.go"
-	PackageName string   // 包名，默认 "models"
-	Tables      []string // 指定要生成的表名，为空则生成所有表
-	TablePrefix string   // 表前缀，生成时会去除
+	OutDir       string   // 输出目录，默认 "./models"
+	OutFileName  string   // 输出文件名，默认 "models.go"（当 SeparateFile=false 时使用）
+	PackageName  string   // 包名，默认 "models"
+	Tables       []string // 指定要生成的表名，为空则生成所有表
+	TablePrefix  string   // 表前缀，生成时会去除
+	SeparateFile bool     // 是否为每个表生成单独的文件，文件名格式: 表名_model.go
 
 	// 类型映射配置（自定义数据库类型到Go类型的映射）
 	// 例如: {"datetime": "time.Time", "decimal": "float64"}
@@ -50,6 +51,7 @@ func NewGeneratorConfig(host string, port int, username, password, database stri
 		PackageName:   "models",
 		Tables:        []string{},
 		TablePrefix:   "",
+		SeparateFile:  false,
 		TypeMapping:   getDefaultTypeMapping(),
 		EnableJSONTag: true,
 		EnableGormTag: true,
@@ -150,7 +152,18 @@ func (gc *GeneratorConfig) Generate() error {
 		tables = allTables
 	}
 
-	// 生成每个表的模型
+	// 根据 SeparateFile 配置决定生成方式
+	if gc.SeparateFile {
+		// 为每个表生成单独的文件
+		return gc.generateSeparateFiles(tables)
+	} else {
+		// 所有表生成到一个文件
+		return gc.generateSingleFile(tables)
+	}
+}
+
+// generateSingleFile 将所有表生成到一个文件
+func (gc *GeneratorConfig) generateSingleFile(tables []string) error {
 	var modelsCodes []string
 	for _, tableName := range tables {
 		columns, err := gc.GetTableColumns(tableName)
@@ -179,6 +192,40 @@ func (gc *GeneratorConfig) Generate() error {
 
 	if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+// generateSeparateFiles 为每个表生成单独的文件
+func (gc *GeneratorConfig) generateSeparateFiles(tables []string) error {
+	for _, tableName := range tables {
+		columns, err := gc.GetTableColumns(tableName)
+		if err != nil {
+			return fmt.Errorf("failed to get columns for table %s: %w", tableName, err)
+		}
+
+		// 获取表注释
+		tableComment, err := gc.GetTableComment(tableName)
+		if err != nil {
+			// 表注释获取失败不影响生成
+			tableComment = ""
+		}
+
+		code, err := gc.generateTableModel(tableName, tableComment, columns)
+		if err != nil {
+			return fmt.Errorf("failed to generate model for table %s: %w", tableName, err)
+		}
+
+		// 为每个表生成单独的文件
+		// 文件名格式: 表名_model.go
+		fileName := fmt.Sprintf("%s_model.go", tableName)
+		outputPath := fmt.Sprintf("%s/%s", gc.OutDir, fileName)
+		content := gc.buildFileContent([]string{code})
+
+		if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write file %s: %w", fileName, err)
+		}
 	}
 
 	return nil
@@ -472,6 +519,12 @@ func (gc *GeneratorConfig) WithTables(tables ...string) *GeneratorConfig {
 // WithTablePrefix 设置表前缀
 func (gc *GeneratorConfig) WithTablePrefix(prefix string) *GeneratorConfig {
 	gc.TablePrefix = prefix
+	return gc
+}
+
+// WithSeparateFile 设置是否为每个表生成单独的文件
+func (gc *GeneratorConfig) WithSeparateFile(separate bool) *GeneratorConfig {
+	gc.SeparateFile = separate
 	return gc
 }
 
