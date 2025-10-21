@@ -26,16 +26,17 @@ type ConfigFile struct {
 	} `yaml:"database" json:"database"`
 
 	Generator struct {
-		OutDir        string            `yaml:"out_dir" json:"out_dir"`
-		OutFileName   string            `yaml:"out_file" json:"out_file"`
-		PackageName   string            `yaml:"package_name" json:"package_name"`
-		Tables        []string          `yaml:"tables" json:"tables"`
-		TablePrefix   string            `yaml:"table_prefix" json:"table_prefix"`
-		SeparateFile  bool              `yaml:"separate_file" json:"separate_file"`
-		TypeMapping   map[string]string `yaml:"type_mapping" json:"type_mapping"`
-		EnableJSONTag bool              `yaml:"enable_json_tag" json:"enable_json_tag"`
-		EnableGormTag bool              `yaml:"enable_gorm_tag" json:"enable_gorm_tag"`
-		JSONTagStyle  string            `yaml:"json_tag_style" json:"json_tag_style"`
+		OutDir         string            `yaml:"out_dir" json:"out_dir"`
+		OutFileName    string            `yaml:"out_file" json:"out_file"`
+		PackageName    string            `yaml:"package_name" json:"package_name"`
+		Tables         []string          `yaml:"tables" json:"tables"`
+		TablePrefix    string            `yaml:"table_prefix" json:"table_prefix"`
+		SeparateFile   bool              `yaml:"separate_file" json:"separate_file"`
+		TypeMapping    map[string]string `yaml:"type_mapping" json:"type_mapping"`
+		EnableJSONTag  bool              `yaml:"enable_json_tag" json:"enable_json_tag"`
+		EnableGormTag  bool              `yaml:"enable_gorm_tag" json:"enable_gorm_tag"`
+		JSONTagStyle   string            `yaml:"json_tag_style" json:"json_tag_style"`
+		GenerateToJSON bool              `yaml:"generate_to_json" json:"generate_to_json"`
 	} `yaml:"generator" json:"generator"`
 }
 
@@ -176,6 +177,7 @@ func main() {
 	genConfig.EnableJSONTag = config.Generator.EnableJSONTag
 	genConfig.EnableGormTag = config.Generator.EnableGormTag
 	genConfig.JSONTagStyle = config.Generator.JSONTagStyle
+	genConfig.GenerateToJSON = config.Generator.GenerateToJSON
 
 	// 应用自定义类型映射
 	if len(config.Generator.TypeMapping) > 0 {
@@ -345,7 +347,7 @@ generator:
   # 输出目录
   out_dir: ./models
   # 输出文件名
-  out_file: models.go
+  out_file: 
   # 包名
   package_name: models
   # 指定要生成的表（留空则生成所有表）
@@ -355,7 +357,7 @@ generator:
   # 是否为每个表生成单独的文件（默认: false）
   # true: 每个表生成一个文件，文件名格式为 表名_model.go
   # false: 所有表生成到一个文件（out_file 指定的文件名）
-  separate_file: false
+  separate_file: true
   
   # 自定义类型映射（可选）
   # 示例:
@@ -370,6 +372,9 @@ generator:
   enable_gorm_tag: true
   # JSON 标签命名风格: snake_case, camelCase, original（默认: snake_case）
   json_tag_style: snake_case
+  # 是否生成 ToJsonString 方法（默认: false）
+  # true: 为每个模型生成 ToJsonString() 方法，方便将结构体转换为 JSON 字符串
+  generate_to_json: false
 `
 
 	return os.WriteFile(".grds.yaml", []byte(content), 0644)

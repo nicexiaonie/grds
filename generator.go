@@ -36,26 +36,29 @@ type GeneratorConfig struct {
 	EnableGormTag bool
 	// JSON标签命名风格: "snake_case", "camelCase", "original"
 	JSONTagStyle string
+	// 是否生成 ToJsonString 方法
+	GenerateToJSON bool
 }
 
 // NewGeneratorConfig 创建生成器配置
 func NewGeneratorConfig(host string, port int, username, password, database string) *GeneratorConfig {
 	return &GeneratorConfig{
-		Host:          host,
-		Port:          port,
-		Username:      username,
-		Password:      password,
-		Database:      database,
-		OutDir:        "./models",
-		OutFileName:   "models.go",
-		PackageName:   "models",
-		Tables:        []string{},
-		TablePrefix:   "",
-		SeparateFile:  false,
-		TypeMapping:   getDefaultTypeMapping(),
-		EnableJSONTag: true,
-		EnableGormTag: true,
-		JSONTagStyle:  "snake_case",
+		Host:           host,
+		Port:           port,
+		Username:       username,
+		Password:       password,
+		Database:       database,
+		OutDir:         "./models",
+		OutFileName:    "models.go",
+		PackageName:    "models",
+		Tables:         []string{},
+		TablePrefix:    "",
+		SeparateFile:   false,
+		TypeMapping:    getDefaultTypeMapping(),
+		EnableJSONTag:  true,
+		EnableGormTag:  true,
+		JSONTagStyle:   "snake_case",
+		GenerateToJSON: false,
 	}
 }
 
@@ -266,7 +269,16 @@ type {{.StructName}} struct {
 func ({{.StructName}}) TableName() string {
 	return "{{.TableName}}"
 }
-`
+{{if .GenerateToJSON}}
+// ToJsonString 将结构体转换为 JSON 字符串
+func (m *{{.StructName}}) ToJsonString() (string, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+{{end}}`
 
 	t, err := template.New("model").Parse(tmpl)
 	if err != nil {
@@ -274,10 +286,11 @@ func ({{.StructName}}) TableName() string {
 	}
 
 	data := map[string]interface{}{
-		"StructName":   structName,
-		"TableName":    tableName,
-		"TableComment": tableComment,
-		"Fields":       fields,
+		"StructName":     structName,
+		"TableName":      tableName,
+		"TableComment":   tableComment,
+		"Fields":         fields,
+		"GenerateToJSON": gc.GenerateToJSON,
 	}
 
 	var buf bytes.Buffer
@@ -388,19 +401,27 @@ func (gc *GeneratorConfig) buildFileContent(modelsCodes []string) string {
 
 	buf.WriteString(fmt.Sprintf("package %s\n\n", gc.PackageName))
 
-	// 检查是否需要导入 time 包
+	// 检查是否需要导入包
 	needTime := false
+	needJSON := gc.GenerateToJSON
 	for _, code := range modelsCodes {
 		if strings.Contains(code, "time.Time") {
 			needTime = true
-			break
+		}
+		if strings.Contains(code, "json.Marshal") {
+			needJSON = true
 		}
 	}
 
 	// 导入
-	if needTime {
+	if needTime || needJSON {
 		buf.WriteString("import (\n")
-		buf.WriteString("\t\"time\"\n")
+		if needJSON {
+			buf.WriteString("\t\"encoding/json\"\n")
+		}
+		if needTime {
+			buf.WriteString("\t\"time\"\n")
+		}
 		buf.WriteString(")\n\n")
 	}
 
@@ -564,6 +585,12 @@ func (gc *GeneratorConfig) WithEnableJSONTag(enable bool) *GeneratorConfig {
 // WithEnableGormTag 设置是否启用GORM标签
 func (gc *GeneratorConfig) WithEnableGormTag(enable bool) *GeneratorConfig {
 	gc.EnableGormTag = enable
+	return gc
+}
+
+// WithGenerateToJSON 设置是否生成 ToJsonString 方法
+func (gc *GeneratorConfig) WithGenerateToJSON(enable bool) *GeneratorConfig {
+	gc.GenerateToJSON = enable
 	return gc
 }
 
