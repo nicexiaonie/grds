@@ -316,7 +316,17 @@ func (gc *GeneratorConfig) buildTags(col ColumnInfo) string {
 
 		// 默认值
 		if col.Default != nil {
-			defaultVal := fmt.Sprintf("%v", col.Default)
+			var defaultVal string
+			// 处理字节数组情况（某些数据库驱动返回 []byte）
+			switch v := col.Default.(type) {
+			case []byte:
+				defaultVal = string(v)
+			case string:
+				defaultVal = v
+			default:
+				defaultVal = fmt.Sprintf("%v", v)
+			}
+
 			if defaultVal != "" && defaultVal != "NULL" {
 				gormTags = append(gormTags, fmt.Sprintf("default:%s", defaultVal))
 			}
